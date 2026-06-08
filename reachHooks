@@ -1,0 +1,462 @@
+React Hooks are one of the most important concepts to understand because they are how React components manage:
+
+Hooks are special React functions that allow functional components
+to use React features such as state, lifecycle behavior, refs, context, and reusable logic.
+Hooks let React track component state and rerender components when that state changes.
+
+State
+Side effects
+API calls
+DOM access
+Reusable logic
+
+~~~~~~~~~
+
+
+
+function UsersPage() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    async function loadUsers() {
+      const response =
+        await fetch(
+          "http://localhost:3001/users"
+        );
+
+      const data =
+        await response.json();
+
+      setUsers(data);
+    }
+
+    loadUsers();
+  }, []);
+
+  return (
+    <div>
+      {users.map(user => (
+        <p key={user.id}>
+          {user.name}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+how it works:
+
+Page loads
+     ↓
+useEffect runs
+     ↓
+fn call : loadUsers then Call NestJS API
+     ↓
+Get data
+     ↓
+setUsers
+     ↓
+Rerender
+     ↓
+Display users
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~useRouter()
+useRouter() is one of the most commonly used hooks in Next.js
+: A hook that allows you to navigate between pages programmatically from JavaScript code.
+
+
+useRouter() is a Next.js client-side hook from next/navigation that allows programmatic navigation. It provides methods such as:
+
+push() → navigate to a new route
+replace() → navigate without adding history
+back() → go back
+forward() → go forward
+refresh() → re-fetch server-rendered data
+
+
+
+
+'use client'
+import { useRouter } from 'next/navigation';
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  return (
+    <button
+      onClick={() => router.push('/dashboard')}
+    >
+      Login
+    </button>
+  );
+}
+
+Login
+  ↓
+router.push('/dashboard')
+  ↓
+Navigate
+  ↓
+/dashboard
+
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Hooks
+problem solved by hooks : It stores data that can change and causes the UI to rerender.
+
+1. useState
+: It stores data that can change and causes the UI to rerender.
+
+Render
+↓
+DOM updated
+↓
+useEffect runs
+
+
+const [questions, setQuestions] = useState([]);
+function addQuestion() {
+  setQuestions([
+    ...questions,
+    {
+      id: Date.now(),
+      title: "New Question"
+    }
+  ]);
+}
+Flow:
+Button Click
+      │
+      ▼
+setQuestions()
+      │
+      ▼
+Component Rerender
+      │
+      ▼
+UI Updated
+
+
+
+2. useEffect
+: Run code when something happens.
+
+Examples:
+Component loads
+State changes
+Props change
+
+
+function Users() {
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(res => res.json())
+      .then(data => setUsers(data));
+  }, []);
+
+  return <div>{users.length}</div>;
+}
+
+what happens :
+
+1. Component renders
+   users = []
+
+2. useEffect runs
+   API call starts
+
+3. API response comes
+
+4. setUsers(data)
+
+5. Component re-renders
+   users = actual data
+
+
+
+useState = stores data
+
+setState = triggers re-render
+
+useEffect = runs side effects after render
+
+useEffect + setState = causes another render
+
+
+
+
+~~~~~~~Dependency Array
+Run once:
+useEffect(() => {}, []);
+
+Run when teamId changes:
+useEffect(() => {}, [teamId]);
+
+Run every render:
+useEffect(() => {});
+
+
+
+
+3. useRef
+:lets you store a value that:
+
+Persists between renders
+Does not cause a re-render when changed
+
+
+function App() {
+  const [count, setCount] = useState(0);
+  const countRef = useRef(0);
+
+  return (
+    <>
+      <p>State: {count}</p>
+      <p>Ref: {countRef.current}</p>
+
+      <button onClick={() => setCount(count + 1)}>
+        State++
+      </button>
+
+      <button onClick={() => countRef.current++}>
+        Ref++
+      </button>
+    </>
+  );
+}
+
+When you click Ref++:
+countRef.current changes
+↓
+No re-render
+↓
+Screen still shows old value
+
+When you click State++:
+State changes
+↓
+Re-render
+↓
+Now latest ref value is also visible
+
+Real Project Use Cases:
+1. Accessing DOM Elements
+2. Store Previous Value
+3. Store Timer IDs
+4. Prevent Multiple API Calls
+e.g.
+const fetchedRef = useRef(false);
+
+useEffect(() => {
+  if (fetchedRef.current) return;
+
+  fetchedRef.current = true;
+
+  fetchUsers();
+}, []);
+
+
+Render
+↓
+DOM updated
+↓
+Browser paints screen
+↓
+useEffect runs
+
+
+
+
+useLayoutEffect:
+Read DOM measurements
+Change DOM immediately
+Prevent visual flicker
+
+Render
+↓
+DOM updated
+↓
+useLayoutEffect runs
+↓
+Browser paints screen
+
+######
+useLayoutEffect
+↑ before paint
+
+useEffect
+↑ after paint
+
+
+Why Not Use useLayoutEffect Everywhere?
+
+Because it blocks painting.
+
+Render
+↓
+DOM update
+↓
+useLayoutEffect
+↓
+(wait...)
+↓
+Paint
+
+useLayoutEffect(() => {
+  heavyCalculation(); // 500ms
+}, []);
+The browser cannot paint until it finishes.
+
+User Sees:
+Blank screen
+(wait 500ms)
+↓
+Paint
+
+************
+setState()
+↓
+Component renders
+↓
+Virtual DOM created
+↓
+React updates real DOM
+↓
+useLayoutEffect runs
+↓
+Browser paints screen
+↓
+useEffect runs
+************
+
+4. useMemo
+:Optimization hook , useMemo caches (memoizes) a calculated value.
+: Normally, when a component re-renders, everything inside the component function runs again.
+
+function App() {
+  console.log("render");
+
+  const result = expensiveCalculation();
+
+  return <div>{result}</div>;
+}
+
+Render
+↓
+expensiveCalculation() runs again : Even if the calculation's inputs haven't changed.
+
+For small calculations this is fine, but for expensive operations it can hurt performance.That's where useMemo helps.
+
+const memoizedValue = useMemo(() => {
+  return someCalculation();
+}, [dependencies]);
+
+If dependencies changed
+    Recalculate
+Else
+    Return cached value
+
+
+Importance :
+
+Initial render
+↓
+Calculation runs once
+↓
+Value cached
+
+count changes
+↓
+Component re-renders
+↓
+Calculation NOT run again
+↓
+Cached value returned
+
+
+~~~~~~~~~~~~~~~~Cache Logic
+
+const result = useMemo(() => {
+  return num * 2;
+}, [num]);
+
+num = 5
+↓
+Calculate 10
+
+num = 5 again
+↓
+Return cached 10
+
+num = 6
+↓
+Calculate 12
+
+
+5. useCallback
+: memoizes a FUNCTION
+
+useMemo  -> memoizes a VALUE
+useCallback -> memoizes a FUNCTION
+
+
+function Parent() {
+  const [count, setCount] = useState(0);
+
+  const handleClick = useCallback(() => {
+    console.log("clicked");
+  }, []);
+
+  return (
+    <>
+      <button onClick={() => setCount(count + 1)}>
+        Increment
+      </button>
+
+      <Child onClick={handleClick} />
+    </>
+  );
+}
+
+Count changes
+↓
+Parent re-renders
+↓
+handleClick reference stays same
+↓
+Child sees same prop
+↓
+Child skips render
+
+Dependency Array Works Like useMemo:
+const handleClick = useCallback(() => {
+  console.log(count);
+}, [count]);
+
+count = 1
+↓
+Function created
+
+count = 1 again
+↓
+Reuse function
+
+count = 2
+↓
+Create new function
+
+
+Comparing All Hooks So Far
+Hook	Stores	Re-render on Update?	Main Purpose
+useState	State value	✅ Yes	UI state
+useEffect	Nothing	❌	Side effects
+useRef	Mutable value	❌	Persist data without render
+useMemo	Computed value	❌	Cache expensive calculations
+useCallback	Function	❌	Cache function references
