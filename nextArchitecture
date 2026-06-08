@@ -1,0 +1,376 @@
+Routes :
+/
+/products
+/products/123
+/cart
+/login
+
+Project structure:
+
+src/
+│
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx
+│   │
+│   ├── products/
+│   │   ├── page.tsx
+│   │   └── [id]/
+│   │       └── page.tsx
+│   │
+│   ├── cart/
+│   │   └── page.tsx
+│   │
+│   └── login/
+│       └── page.tsx
+│
+├── components/
+│   ├── Navbar.tsx
+│   ├── ProductCard.tsx
+│   ├── ProductList.tsx
+│   └── Loader.tsx
+│
+├── hooks/
+│   ├── useProducts.ts
+│   └── useCart.ts
+│
+├── services/
+│   ├── product.service.ts
+│   └── auth.service.ts
+│
+├── lib/
+│   └── api.ts
+│
+└── types/
+    └── product.ts
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Flow
+
+Step 1: User Opens Page
+User visits:
+http://localhost:3000/products
+
+Next.js automatically maps:
+app/products/page.tsx
+to
+/products
+
+
+Step 2: app/products/page.tsx
+
+Page Uses Hook and component
+
+export default function ProductsPage() {
+  const { products } = useProducts();
+
+  return (
+    <ProductList products={products} />
+  );
+}
+
+
+ProductsPage
+      │
+      ▼
+useProducts()
+
+
+Step 3: Hook Contains Logic
+hooks/useProducts.ts
+
+export function useProducts() {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    getProducts().then(setProducts);
+  }, []);
+
+  return { products };
+}
+
+Hook responsibility:
+Fetch Data
+Manage State
+Loading State
+Error State
+
+
+Step 4: Hook Calls Service
+getProducts()
+services/product.service.ts
+
+export async function getProducts() {
+  const response =
+    await api.get('/products');
+
+  return response.data;
+}
+
+Responsibility:
+Build API Requests
+Handle Responses
+NOT UI.
+NOT state.
+
+Step 5: Service Uses API Client
+lib/api.ts
+
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL
+});
+
+Responsibility:
+Shared Axios Configuration
+Auth Headers
+Base URL
+Interceptors
+
+Step 6: Backend
+GET /products
+
+goes to NestJS.
+
+Controller
+    │
+    ▼
+Service
+    │
+    ▼
+Prisma
+    │
+    ▼
+MySQL
+
+returns:
+[
+  {
+    "id": 1,
+    "name": "iPhone"
+  }
+]
+
+
+Step 7: Render Components
+Back in:app/products/page.tsx
+
+<ProductList products={products} />
+
+components/ProductList
+
+export function ProductList({
+  products
+}) {
+  return (
+    <>
+      {products.map(product => (
+        <ProductCard
+          key={product.id}
+          product={product}
+        />
+      ))}
+    </>
+  );
+}
+
+
+Then:
+<ProductCard />
+it renders:
+Product Name
+Price
+Image
+
+Flow:
+ProductsPage(app/products/page.tsx)
+      │
+      ▼
+ProductList(components/ProductList)
+      │
+      ▼
+ProductCard(components/ProductCard)
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Router
+
+Where useRouter Fits
+
+<ProductCard />
+has a button View Details
+
+
+const router = useRouter();
+<button
+  onClick={() =>
+    router.push(`/products/${product.id}`)
+  }
+>
+  View Details
+</button>
+
+Click
+  │
+  ▼
+router.push()
+  │
+  ▼
+/products/123
+  │
+  ▼
+app/products/[id]/page.tsx
+
+
+Where useSearchParams Fits
+url : /products?page=2
+
+const params = useSearchParams();
+const page =
+  params.get("page"); //"2"
+
+
+  URL
+   │
+   ▼
+  /products?page=2
+   │
+   ▼
+  useSearchParams()
+   │
+   ▼
+  page = 2
+
+
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Layout
+  Where Layout Fits
+app/
+├── layout.tsx
+├── page.tsx
+├── products/
+│   └── page.tsx
+
+Root layout:
+<Navbar />
+{children}
+<Footer />
+
+When user opens:
+/products
+
+Render tree:
+
+RootLayout
+    │
+    ▼
+ProductsPage
+
+Result:
+
+Navbar
+
+Products Page
+
+Footer
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Complete Picture
+
+User
+ │
+ ▼
+Browser
+ │
+ ▼
+/products
+ │
+ ▼
+app/products/page.tsx
+ │
+ ▼
+useProducts()
+ │
+ ▼
+product.service.ts
+ │
+ ▼
+api.ts
+ │
+ ▼
+NestJS API
+ │
+ ▼
+Prisma
+ │
+ ▼
+MySQL
+
+Response
+ │
+ ▼
+ProductsPage
+ │
+ ▼
+ProductList
+ │
+ ▼
+ProductCard
+ │
+ ▼
+UI Rendered
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Easy Rule to Remember
+
+app/
+  Pages & Routes
+
+components/
+  Reusable UI
+
+hooks/
+  Reusable Logic
+
+services/
+  API Calls
+
+lib/
+  Shared Libraries & Config
+
+types/
+  TypeScript Types
+
+utils/
+  Helper Functions
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~For a Next.js + NestJS project, when you open a page file (app/users/page.tsx), you can mentally trace:
+
+Page
+ ↓
+Hook
+ ↓
+Service
+ ↓
+Backend API
+ ↓
+Database
+
+Then back:
+
+Database
+ ↓
+Backend
+ ↓
+Service
+ ↓
+Hook
+ ↓
+Component
+ ↓
+Screen
+
+That's the end-to-end request flow you'll see in most production applications.
