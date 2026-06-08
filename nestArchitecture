@@ -1,0 +1,253 @@
+If Next.js is:
+Page
+ ↓
+Hook
+ ↓
+Service
+ ↓
+Backend API
+
+then NestJS is typically:
+Request
+ ↓
+Controller
+ ↓
+Service
+ ↓
+Prisma
+ ↓
+Database
+
+Let's say user opens:
+/users/123
+Next.js sends:
+GET /users/123
+
+NestJS receives:
+Controller
+    │
+    ▼
+Service
+    │
+    ▼
+Prisma
+    │
+    ▼
+MySQL
+Response goes back:
+MySQL
+    │
+    ▼
+Prisma
+    │
+    ▼
+Service
+    │
+    ▼
+Controller
+    │
+    ▼
+Next.js
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Typical NestJS Structure
+src/
+│
+├── main.ts
+│
+├── app.module.ts
+│
+├── users/
+│   ├── users.module.ts
+│   ├── users.controller.ts
+│   ├── users.service.ts
+│   ├── dto/
+│   └── entities/
+│
+├── auth/
+│   ├── auth.module.ts
+│   ├── auth.controller.ts
+│   └── auth.service.ts
+│
+├── prisma/
+│   ├── prisma.module.ts
+│   └── prisma.service.ts
+│
+└── common/
+
+Think:
+users/
+    ↓
+Everything related to users
+
+auth/
+    ↓
+Everything related to authentication
+
+orders/
+    ↓
+Everything related to orders
+
+This is called feature-based architecture.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. main.ts
+Application entry point.
+
+async function bootstrap() {
+  const app =
+    await NestFactory.create(AppModule);
+
+  await app.listen(3001);
+}
+bootstrap();
+
+When container starts:
+Node
+ ↓
+main.ts
+ ↓
+Nest App Created
+ ↓
+Listening on Port
+
+
+2. app.module.ts
+Root module.
+
+@Module({
+  imports: [
+    UsersModule,
+    AuthModule,
+    PrismaModule,
+  ],
+})
+export class AppModule {}
+
+Think:
+AppModule
+    │
+    ├── UsersModule
+    ├── AuthModule
+    └── PrismaModule
+It wires everything together.
+
+3. Controller
+Controller receives HTTP requests.
+
+GET /users/123
+
+@Controller('users')
+export class UsersController {
+
+  @Get(':id')
+  getUser(
+    @Param('id') id: string
+  ) {
+    return this.usersService.getUser(id);
+  }
+}
+
+Think:
+HTTP Request
+      ↓
+Controller
+
+Controller should be thin.
+Its job:
+Receive Request
+Validate Input
+Call Service
+Return Response
+
+
+4. Service
+Business logic lives here.
+
+@Injectable()
+export class UsersService {
+
+  async getUser(id: string) {
+    return this.prisma.user.findUnique({
+      where: {
+        id: Number(id)
+      }
+    });
+  }
+}
+
+Think:
+Controller
+     ↓
+Service
+
+Service decides:
+How to fetch user
+How to update user
+Business rules
+Permissions
+Calculations
+
+Why Not Put Logic in Controller?
+Controller becomes huge.
+
+5. Prisma Module
+src/prisma/
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~Flow
+User Clicks Button
+      │
+      ▼
+Next Page
+      │
+      ▼
+Frontend Service
+      │
+      ▼
+HTTP Request
+      │
+─────────────────────
+      │
+      ▼
+Nest Controller
+      │
+      ▼
+Nest Service
+      │
+      ▼
+Prisma
+      │
+      ▼
+MySQL
+      │
+─────────────────────
+      │
+      ▼
+Response
+      │
+      ▼
+Next UI Updates
+
+
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~Module
+What is a Module?
+
+users/
+  users.controller.ts
+  users.service.ts
+  users.module.ts
+
+Module groups them.
+@Module({
+  controllers: [
+    UsersController
+  ],
+  providers: [
+    UsersService
+  ],
+})
+export class UsersModule {}
