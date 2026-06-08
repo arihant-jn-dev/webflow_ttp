@@ -1,0 +1,76 @@
+A React component goes through three main stages:
+Mount
+↓
+Update
+↓
+Unmount
+
+1. Mount
+Mounting means:
+React creates the component for the first time and puts it into the DOM.
+
+function App() {
+  return <UserProfile />;
+}
+
+When <UserProfile /> appears for the first time:
+
+React creates UserProfile
+↓
+Runs component function
+↓
+Creates DOM nodes
+↓
+Adds them to page
+
+This is called:
+Component Mounted
+
+
+2. Update
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      {count}
+    </button>
+  );
+}
+
+State changes
+↓
+Component re-renders
+↓
+DOM updated
+
+The component was already mounted. React is just updating it.
+
+
+3. Unmount
+UnMounting : React removes the component from the DOM.
+
+function App() {
+  const [show, setShow] = useState(true);
+
+  return (
+    <>
+      <button onClick={() => setShow(false)}>
+        Hide
+      </button>
+
+      {show && <UserProfile />}
+    </>
+  );
+}
+
+Initially:
+UserProfile mounted
+
+After clicking:
+show = false
+↓
+UserProfile removed from DOM
+↓
+Component unmounted
