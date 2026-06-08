@@ -1,0 +1,69 @@
+Full Lifecycle Example
+
+function App() {
+  console.log("render");
+
+  useLayoutEffect(() => {
+    console.log("layout");
+  });
+
+  useEffect(() => {
+    console.log("effect");
+  });
+
+  return <div>Hello</div>;
+}
+
+
+React starts render
+↓
+render
+
+Register layout effect
+↓
+Register effect
+↓
+Return JSX
+↓
+Update DOM
+↓
+Run layout effect
+↓
+layout
+↓
+Browser paints
+↓
+Run effect
+↓
+effect
+
+final Output :
+
+render
+layout
+effect
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~Mental Model
+
+Think of React as having three phases:
+
+1. Render Phase
+----------------
+Run component
+Register hooks
+Build Virtual DOM
+
+2. Commit Phase
+----------------
+Update DOM
+Run useLayoutEffect
+
+3. Post Commit
+----------------
+Browser paints
+Run useEffect
+
+
+That's how React "knows" to run effects later: while rendering, it records them in its internal hook/effect lists,
+                                               and then executes those lists in the appropriate phase after the DOM work is complete.
