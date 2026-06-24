@@ -13,15 +13,16 @@ chat, page loads, or click-outs.
 2. [visitor_id and session_id — what they are and how to look up a user](#2-visitor_id-and-session_id--what-they-are-and-how-to-look-up-a-user)
 3. [Event catalog](#3-event-catalog)
 4. [What every event carries (shared context)](#4-what-every-event-carries-shared-context)
-5. [UTM and click-macro handling](#5-utm-and-click-macro-handling)
-6. [File map](#6-file-map)
-7. [Configuration](#7-configuration)
-8. [ClickHouse table schema](#8-clickhouse-table-schema)
-9. [Vector configuration](#9-vector-configuration)
-10. [Local development](#10-local-development)
-11. [Adding a new event](#11-adding-a-new-event)
-12. [A/B experiment extension point](#12-ab-experiment-extension-point)
-13. [What is NOT tracked](#13-what-is-not-tracked)
+5. [What you can see in the browser Network tab (and what you can't)](#5-what-you-can-see-in-the-browser-network-tab-and-what-you-cant)
+6. [UTM and click-macro handling](#6-utm-and-click-macro-handling)
+7. [File map](#7-file-map)
+8. [Configuration](#8-configuration)
+9. [ClickHouse table schema](#9-clickhouse-table-schema)
+10. [Vector configuration](#10-vector-configuration)
+11. [Local development](#11-local-development)
+12. [Adding a new event](#12-adding-a-new-event)
+13. [A/B experiment extension point](#13-ab-experiment-extension-point)
+14. [What is NOT tracked](#14-what-is-not-tracked)
 
 ---
 
@@ -240,7 +241,66 @@ These fields attach to **every** event automatically — never pass them manuall
 
 ---
 
-## 5. UTM and click-macro handling
+## 5. What you can see in the browser Network tab (and what you can't)
+
+When you open DevTools → Network and filter by `bea` (for beacon), you will see
+one POST request to `/api/track/beacon` for each **client-side** event. You will
+**never** see server-side events there — they bypass the browser entirely and go
+straight from the backend process to Vector over TCP.
+
+### Visible in the Network tab
+
+These events are sent by the browser via `navigator.sendBeacon` →
+`/api/track/beacon`. Each one appears as a POST request in DevTools.
+
+| Event | What triggers it |
+|---|---|
+| `page_view` | Every page load or route change |
+| `chat_opened` | User clicks the FAB or expand button |
+| `chat_window_expanded` | User taps the header chevron to reopen the panel |
+| `chat_window_minimised` | User taps the header chevron to collapse the panel |
+| `chat_window_closed` | User taps the dark backdrop behind the panel |
+| `preset_question_clicked` | User clicks a starter question chip |
+| `disclosure_shown` | Panel opens for the first time and a disclaimer is set |
+| `background_content_click` | User clicks "View on Stack Exchange" |
+| `affiliate_click` | User clicks the ad card CTA link |
+
+**Why:** These fire from JavaScript in the browser. `sendBeacon` posts to
+`/api/track/beacon` (Next.js proxy → Express), so the request shows up in
+DevTools like any other HTTP call.
+
+### NOT visible in the Network tab
+
+These events are emitted by the **backend process** directly — no browser
+request is involved, so DevTools will never show them.
+
+| Event | What triggers it | Why it's server-side |
+|---|---|---|
+| `chat_session_started` | First message of a new conversation | Backend creates the session and has all the context; no need to round-trip the browser |
+| `chat_turn` (user) | User message persisted to DB | Backend already has the message; avoids a second client request |
+| `chat_turn` (bot) | LLM stream finishes | Only the backend knows when the full response is done and how long it took |
+| `chat_completed` | After bot stream completes | Same — stream timing and turn count are only known server-side |
+| `recommendation_shown` | LLM reply contains a curated URL | Backend is the one reading `fullText` after the stream; client never sees raw response before rendering |
+| `chat_error` | OpenRouter failure | Error happens server-side; emitting from the backend avoids a race with the error SSE frame |
+
+**Why:** These call `trackEvent()` in `backend/src/tracking/trackingService.ts`
+which writes directly to the `FluentClient` TCP connection → Vector → ClickHouse.
+The browser is never involved.
+
+**How to verify them:** Query ClickHouse directly instead of using DevTools:
+
+```bash
+curl -s "http://localhost:8123" \
+  --data "SELECT event_name, page_slug, event_timestamp
+          FROM analytics.answerbot_events
+          WHERE page_slug = 'glp1-weight-loss-D'
+          ORDER BY event_timestamp DESC LIMIT 20
+          FORMAT PrettyCompact"
+```
+
+---
+
+## 6. UTM and click-macro handling
 
 ### How UTM params are captured
 
@@ -272,7 +332,7 @@ fires at the same time.
 
 ---
 
-## 6. File map
+## 7. File map
 
 ```
 backend/src/tracking/
@@ -309,7 +369,7 @@ backend/src/chatbot/chatRouter.ts    Server-side events: chat_session_started,
 
 ---
 
-## 7. Configuration
+## 8. Configuration
 
 ### Backend env vars
 
@@ -324,7 +384,7 @@ one warning is logged on the first emit then the logger stays silent. No crash.
 
 ---
 
-## 8. ClickHouse table schema
+## 9. ClickHouse table schema
 
 Current DDL (also in `analytics/clickhouse-init.sql`):
 
@@ -422,7 +482,7 @@ ORDER BY event_timestamp FORMAT PrettyCompact;
 
 ---
 
-## 9. Vector configuration
+## 10. Vector configuration
 
 Local dev config is in `analytics/vector.yaml`. For reference:
 
@@ -462,7 +522,7 @@ stopping, wiping, DBeaver setup.
 
 ---
 
-## 10. Local development
+## 11. Local development
 
 You do **not** need Vector running to develop. When the FluentClient cannot
 connect, it logs one warning then stays silent:
@@ -489,7 +549,7 @@ curl -s -o /dev/null -w "%{http_code}" \
 
 ---
 
-## 11. Adding a new event
+## 12. Adding a new event
 
 ### Client-side event
 
@@ -545,7 +605,7 @@ Then populate it in `trackingService.ts` inside the `row` object.
 
 ---
 
-## 12. A/B experiment extension point
+## 13. A/B experiment extension point
 
 No structural rewrites needed — four targeted additions:
 
@@ -579,7 +639,7 @@ unit of randomisation.
 
 ---
 
-## 13. What is NOT tracked
+## 14. What is NOT tracked
 
 - **Raw user message content** — never in events (persisted in `messages` table, separate from analytics)
 - **Full IP address** — last IPv4 octet / last 80 IPv6 bits always zeroed
